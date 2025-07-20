@@ -1,0 +1,29 @@
+{
+  "name": "productvisualizer",
+  "version": "1.0.0",
+  "description": "3D Product Customizer - Web-based product customization tool",
+  "main": "frontend/index.html",
+  "scripts": {
+    "dev": "cd frontend && python3 -m http.server 8000",
+    "dev:alt": "cd frontend && npx serve -s . -l 8000",
+    "start": "cd frontend && python3 -m http.server 8000",
+    "test": "echo \"No tests specified yet\" && exit 0",
+    "build": "echo \"No build process needed - using CDN approach\" && exit 0",
+    "clean": "rm -rf node_modules pnpm-lock.yaml",
+    "setup": "pnpm install"
+  },
+  "keywords": [
+    "3d",
+    "product",
+    "customizer",
+    "threejs",
+    "react",
+    "web"
+  ],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.10.0",
+  "devDependencies": {
+    "serve": "^14.2.1"
+  }
+}

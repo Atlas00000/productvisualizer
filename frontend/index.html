@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Product Customizer</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        /* Custom styles for 3D Product Customizer */
+        
+        /* 3D Viewer Styles */
+        .viewer-container {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .three-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+        }
+        
+        /* Color Swatch Styles */
+        .color-swatch {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .color-swatch:hover {
+            transform: scale(1.1);
+            border-color: #3b82f6;
+        }
+        
+        .color-swatch.selected {
+            border-color: #1f2937;
+            box-shadow: 0 0 0 2px #3b82f6;
+        }
+        
+        /* Material Option Styles */
+        .material-option {
+            padding: 8px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .material-option:hover {
+            border-color: #3b82f6;
+            background-color: #f8fafc;
+        }
+        
+        .material-option.selected {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+            color: #1e40af;
+        }
+        
+        /* Loading Animation */
+        .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .viewer-container {
+                height: 300px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .viewer-container {
+                height: 250px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div id="root"></div>
+
+    <!-- React Application -->
+    <script type="text/babel">
+        // Application Constants
+        const APP_CONFIG = {
+            API_BASE_URL: 'http://localhost:3000/api',
+            VIEWER_CONFIG: {
+                FOV: 75,
+                NEAR: 0.1,
+                FAR: 1000,
+                CAMERA_POSITION: { x: 5, y: 5, z: 5 },
+                LIGHT_POSITION: { x: 10, y: 10, z: 10 },
+                BACKGROUND_COLOR: 0xf0f0f0
+            },
+            DEFAULT_PRODUCT: {
+                id: 'chair-001',
+                name: 'Modern Chair',
+                basePrice: 299,
+                colors: [
+                    { name: 'Black', hex: '#000000', price: 0 },
+                    { name: 'White', hex: '#ffffff', price: 0 },
+                    { name: 'Brown', hex: '#8B4513', price: 25 },
+                    { name: 'Blue', hex: '#1e40af', price: 30 }
+                ],
+                materials: [
+                    { name: 'Fabric', price: 0 },
+                    { name: 'Leather', price: 50 },
+                    { name: 'Mesh', price: 25 }
+                ]
+            },
+            UI_CONFIG: {
+                LOADING_TIMEOUT: 5000,
+                ANIMATION_DURATION: 300,
+                COLOR_SWATCH_SIZE: 40
+            }
+        };
+
+        // Header Component
+        const Header = () => (
+            <header className="mb-8">
+                <h1 className="text-3xl font-bold text-gray-800 text-center">
+                    3D Product Customizer
+                </h1>
+                <p className="text-gray-600 text-center mt-2">
+                    Customize your products with real-time 3D visualization
+                </p>
+            </header>
+        );
+
+        // 3D Viewer Component
+        const ProductViewer = ({ isLoading }) => (
+            <div className="lg:col-span-2">
+                <div className="bg-white rounded-lg shadow-lg p-6">
+                    <h2 className="text-xl font-semibold mb-4">Product Viewer</h2>
+                    <div className="viewer-container w-full h-96 bg-gray-200 rounded-lg flex items-center justify-center">
+                        {isLoading ? (
+                            <div className="loading text-gray-500">
+                                Loading 3D Model...
+                            </div>
+                        ) : (
+                            <canvas className="three-canvas" />
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+
+        // Color Swatch Component
+        const ColorSwatch = ({ color, isSelected, onSelect }) => (
+            <div
+                className={`color-swatch ${isSelected ? 'selected' : ''}`}
+                style={{ backgroundColor: color.hex }}
+                onClick={() => onSelect(color)}
+                title={color.name}
+            />
+        );
+
+        // Material Option Component
+        const MaterialOption = ({ material, isSelected, onSelect }) => (
+            <div
+                className={`material-option ${isSelected ? 'selected' : ''}`}
+                onClick={() => onSelect(material)}
+            >
+                {material.name} {material.price > 0 ? `(+$${material.price})` : ''}
+            </div>
+        );
+
+        // Product Details Component
+        const ProductDetails = ({ product, selectedColor, selectedMaterial }) => (
+            <div className="mb-6">
+                <h3 className="text-lg font-medium mb-3">Product Details</h3>
+                <div className="space-y-2 text-sm">
+                    <div><strong>Product:</strong> {product.name}</div>
+                    <div><strong>Base Price:</strong> ${product.basePrice}</div>
+                    <div><strong>Selected Color:</strong> {selectedColor.name}</div>
+                    <div><strong>Selected Material:</strong> {selectedMaterial.name}</div>
+                </div>
+            </div>
+        );
+
+        // Customization Panel Component
+        const CustomizationPanel = ({ 
+            product, 
+            selectedColor, 
+            selectedMaterial, 
+            totalPrice,
+            onColorSelect,
+            onMaterialSelect,
+            onAddToCart 
+        }) => (
+            <div className="lg:col-span-1">
+                <div className="bg-white rounded-lg shadow-lg p-6">
+                    <h2 className="text-xl font-semibold mb-4">Customization</h2>
+                    
+                    {/* Color Selection */}
+                    <div className="mb-6">
+                        <h3 className="text-lg font-medium mb-3">Color</h3>
+                        <div className="flex flex-wrap gap-2">
+                            {product.colors.map(color => (
+                                <ColorSwatch
+                                    key={color.name}
+                                    color={color}
+                                    isSelected={color.name === selectedColor.name}
+                                    onSelect={onColorSelect}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Material Selection */}
+                    <div className="mb-6">
+                        <h3 className="text-lg font-medium mb-3">Material</h3>
+                        <div className="space-y-2">
+                            {product.materials.map(material => (
+                                <MaterialOption
+                                    key={material.name}
+                                    material={material}
+                                    isSelected={material.name === selectedMaterial.name}
+                                    onSelect={onMaterialSelect}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Product Details */}
+                    <ProductDetails
+                        product={product}
+                        selectedColor={selectedColor}
+                        selectedMaterial={selectedMaterial}
+                    />
+
+                    {/* Price and Actions */}
+                    <div className="border-t pt-4">
+                        <div className="flex justify-between items-center mb-4">
+                            <span className="text-lg font-semibold">Total Price:</span>
+                            <span className="text-2xl font-bold text-green-600">${totalPrice}</span>
+                        </div>
+                        <button 
+                            onClick={onAddToCart}
+                            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            Add to Cart
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+
+        // Footer Component
+        const Footer = () => (
+            <footer className="mt-8 text-center text-gray-500 text-sm">
+                <p>3D Product Customizer - Built with Three.js and React</p>
+            </footer>
+        );
+
+        // Loading Component
+        const LoadingSpinner = () => (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="loading-spinner"></div>
+                <span className="ml-3 text-gray-600">Loading...</span>
+            </div>
+        );
+
+        // Main App Component
+        const App = () => {
+            const [isLoading, setIsLoading] = React.useState(true);
+            const [currentProduct, setCurrentProduct] = React.useState(APP_CONFIG.DEFAULT_PRODUCT);
+            const [selectedColor, setSelectedColor] = React.useState(currentProduct.colors[0]);
+            const [selectedMaterial, setSelectedMaterial] = React.useState(currentProduct.materials[0]);
+            const [totalPrice, setTotalPrice] = React.useState(currentProduct.basePrice);
+
+            // Initialize application when component mounts
+            React.useEffect(() => {
+                initializeApp();
+            }, []);
+
+            // Initialize the application
+            const initializeApp = async () => {
+                try {
+                    // Simulate loading time
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // Load product data
+                    await loadProductData();
+                    
+                    setIsLoading(false);
+                } catch (error) {
+                    console.error('Failed to initialize app:', error);
+                    setIsLoading(false);
+                }
+            };
+
+            // Load product data from API
+            const loadProductData = async () => {
+                try {
+                    // For now, use default product data
+                    // Later this will fetch from API
+                    console.log('Product data loaded:', currentProduct);
+                } catch (error) {
+                    console.error('Failed to load product data:', error);
+                }
+            };
+
+            // Handle color selection
+            const handleColorSelect = (color) => {
+                setSelectedColor(color);
+                updatePrice();
+                update3DModel();
+            };
+
+            // Handle material selection
+            const handleMaterialSelect = (material) => {
+                setSelectedMaterial(material);
+                updatePrice();
+                update3DModel();
+            };
+
+            // Handle add to cart
+            const handleAddToCart = () => {
+                const cartItem = {
+                    productId: currentProduct.id,
+                    productName: currentProduct.name,
+                    selectedColor: selectedColor.name,
+                    selectedMaterial: selectedMaterial.name,
+                    totalPrice: totalPrice
+                };
+                
+                console.log('Added to cart:', cartItem);
+                alert('Product added to cart!');
+            };
+
+            // Update total price
+            const updatePrice = () => {
+                const newPrice = currentProduct.basePrice + selectedColor.price + selectedMaterial.price;
+                setTotalPrice(newPrice);
+            };
+
+            // Update 3D model (placeholder)
+            const update3DModel = () => {
+                console.log('Updating 3D model with:', {
+                    color: selectedColor.name,
+                    material: selectedMaterial.name
+                });
+                // This will be implemented in Week 2
+            };
+
+            // Render loading state
+            if (isLoading) {
+                return <LoadingSpinner />;
+            }
+
+            // Render main app
+            return (
+                <div className="container mx-auto px-4 py-8">
+                    <Header />
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <ProductViewer isLoading={isLoading} />
+                        
+                        <CustomizationPanel
+                            product={currentProduct}
+                            selectedColor={selectedColor}
+                            selectedMaterial={selectedMaterial}
+                            totalPrice={totalPrice}
+                            onColorSelect={handleColorSelect}
+                            onMaterialSelect={handleMaterialSelect}
+                            onAddToCart={handleAddToCart}
+                        />
+                    </div>
+                    
+                    <Footer />
+                </div>
+            );
+        };
+
+        // Render the React app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html> 
